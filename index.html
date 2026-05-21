@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>내신성적 조회 시스템 v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;background:#f0f4f8;min-height:100vh}
+.container{max-width:960px;margin:0 auto;padding:24px 16px}
+a{color:inherit;text-decoration:none}
+
+/* ── 공통 ── */
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.09);padding:24px 28px;margin-bottom:20px}
+.btn{padding:9px 22px;border:none;border-radius:7px;font-size:.92rem;font-weight:600;cursor:pointer;transition:background .2s;white-space:nowrap}
+.btn-primary{background:#2563eb;color:#fff}.btn-primary:hover{background:#1d4ed8}
+.btn-green  {background:#0f766e;color:#fff}.btn-green:hover{background:#0d9488}
+.btn-gray   {background:#6b7280;color:#fff}.btn-gray:hover{background:#4b5563}
+.btn-red    {background:#dc2626;color:#fff}.btn-red:hover{background:#b91c1c}
+.btn:disabled{background:#94a3b8;cursor:not-allowed}
+
+/* ── 업로드 페이지 ── */
+#pg-upload{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px 16px}
+.upload-wrap{width:100%;max-width:620px}
+.app-title{text-align:center;margin-bottom:28px}
+.app-title h1{font-size:1.8rem;color:#1a3a5c;margin-bottom:6px}
+.app-title p{font-size:.88rem;color:#888}
+.drop-zone{border:2.5px dashed #93c5fd;border-radius:14px;padding:44px 24px;text-align:center;cursor:pointer;background:#f8faff;transition:all .2s;user-select:none}
+.drop-zone:hover,.drop-zone.drag-over{border-color:#2563eb;background:#eff6ff}
+.drop-icon{font-size:2.6rem;margin-bottom:12px}
+.drop-text{font-size:1rem;font-weight:600;color:#1e40af;margin-bottom:6px}
+.drop-hint{font-size:.8rem;color:#94a3b8}
+.file-list{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.file-item{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f8fafc;border-radius:8px;border:1.5px solid #e2e8f0}
+.file-item .round-badge{background:#1e40af;color:#fff;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.file-item .file-name{flex:1;font-size:.84rem;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-item .file-meta{font-size:.75rem;color:#94a3b8;white-space:nowrap}
+.file-item .del-btn{background:none;border:none;color:#f87171;cursor:pointer;font-size:1rem;padding:2px 4px;line-height:1}
+.upload-error{color:#dc2626;font-size:.82rem;background:#fef2f2;border-radius:6px;padding:8px 12px;margin-top:10px}
+.btn-start{width:100%;margin-top:18px;padding:12px;font-size:1rem}
+
+/* ── 파일 이름 안내 박스 ── */
+.name-guide{background:#fffbeb;border:1.5px solid #fde047;border-radius:8px;padding:12px 14px;margin-top:14px;font-size:.78rem;color:#78350f}
+.name-guide strong{color:#92400e}
+
+/* ── 회차 인디케이터 ── */
+.round-strip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.round-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:600;border:1.5px solid}
+.round-chip.uploaded{background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}
+.round-chip.missing {background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0}
+.round-chip .dot{width:7px;height:7px;border-radius:50%}
+.round-chip.uploaded .dot{background:#1d4ed8}
+.round-chip.missing  .dot{background:#cbd5e1}
+
+/* ── 헤더 ── */
+.page-header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:22px}
+.page-header h1{font-size:1.45rem;color:#1a3a5c}
+.page-header .subtitle{font-size:.8rem;color:#888;margin-top:3px}
+.header-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── 폼 ── */
+.form-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:.8rem;font-weight:600;color:#555}
+select{padding:8px 12px;border:1.5px solid #c8d6e5;border-radius:7px;font-size:.94rem;background:#fff;color:#222;cursor:pointer;outline:none;transition:border-color .2s}
+select:focus{border-color:#3b82f6}
+.checks-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.checks-label{font-size:.8rem;font-weight:600;color:#555}
+.check-item{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;color:#333}
+.check-item input[type=checkbox]{width:16px;height:16px;accent-color:#3b82f6;cursor:pointer}
+
+/* ── 결과 테이블 ── */
+.result-header{font-size:1rem;font-weight:700;color:#1a3a5c;margin-bottom:14px}
+.name-badge{display:inline-block;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:2px 12px;font-size:.9rem;font-weight:700;margin-left:6px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.86rem}
+.main-table{min-width:500px}
+thead th{background:#1e40af;color:#fff;padding:9px 8px;text-align:center;font-weight:600;white-space:nowrap}
+thead th.rank-col{background:#1e3a8a}
+tbody tr:nth-child(odd){background:#f8fafc}
+tbody tr:nth-child(even){background:#eef3fb}
+tbody td{padding:9px 8px;text-align:center;color:#333;white-space:nowrap}
+tbody td.round-label{font-weight:700;color:#1d4ed8;background:#dbeafe}
+tbody tr:nth-child(even) td.round-label{background:#bfdbfe}
+.no-data-cell{color:#aaa;font-style:italic}
+
+/* ── 예측 계산기 ── */
+.predictor-wrap{margin-top:22px;border-top:2px dashed #cbd5e1;padding-top:20px}
+.predictor-title{font-size:.98rem;font-weight:700;color:#1a3a5c;margin-bottom:4px}
+.predictor-sub{font-size:.77rem;color:#888;margin-bottom:14px;line-height:1.6}
+.pred-sem-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.pred-sem-cell{background:#f8fafc;border-radius:8px;padding:14px 16px;border:1.5px solid #e2e8f0}
+.pred-sem-cell.locked{background:#fef9c3;border-color:#fde047}
+.pred-sem-cell label{display:block;font-size:.8rem;font-weight:700;color:#475569;margin-bottom:8px}
+.pred-sem-cell.locked label{color:#92400e}
+.pred-sem-cell select{width:100%;font-size:.88rem}
+.pred-locked-val{font-size:.82rem;color:#92400e;font-weight:600;padding:8px 0}
+.pred-table-wrap{overflow-x:auto;margin-top:4px}
+.pred-table{width:100%;border-collapse:collapse;font-size:.82rem;min-width:440px}
+.pred-table thead th{background:#334155;color:#fff;padding:8px 10px;text-align:center;white-space:nowrap}
+.pred-table tbody td{padding:8px 10px;text-align:center;border-bottom:1px solid #e5e7eb;color:#444;white-space:nowrap}
+.pred-table tbody td.sname{text-align:left;font-weight:600}
+.pred-table tr.row-confirmed{background:#f0f9ff}
+.pred-table tr.row-pred{background:#fffbeb;font-weight:600}
+.pred-table tr.row-final{background:#f0fdf4;font-weight:700}
+.pred-table tr.row-na td{color:#bbb}
+.sbadge{display:inline-block;font-size:.66rem;border-radius:4px;padding:1px 5px;margin-left:3px;vertical-align:middle}
+.sbadge-confirmed{background:#dbeafe;color:#1e40af}
+.sbadge-pred{background:#fef3c7;color:#92400e}
+.sbadge-final{background:#d1fae5;color:#065f46}
+.pred-note{font-size:.73rem;color:#888;margin-top:10px;line-height:1.6}
+
+/* ── 상점 입력 ── */
+.sangjeom-box{display:flex;align-items:center;gap:10px;margin:14px 0 4px;padding:10px 14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;flex-wrap:wrap}
+.sangjeom-box label{font-size:.82rem;font-weight:600;color:#0369a1;white-space:nowrap}
+.sangjeom-hint{font-weight:400;color:#64748b;font-size:.75rem}
+.sangjeom-box input[type=number]{width:64px;padding:4px 8px;border:1px solid #93c5fd;border-radius:6px;font-size:.9rem;text-align:center}
+.sangjeom-unit{font-size:.82rem;color:#0369a1;font-weight:600}
+.sangjeom-badge{background:#fde68a;color:#92400e;border-radius:4px;padding:1px 5px;font-size:.75rem;font-weight:700}
+
+/* ── 통계 페이지 ── */
+#pg-stats{display:none}
+.stat-title{font-size:.95rem;font-weight:700;color:#1a3a5c;margin-bottom:12px}
+.stats-table{min-width:600px}
+.stats-table thead th{background:#0f766e}
+.stats-table thead th.r-head{padding:6px 8px}
+.stats-table td.scope-label{font-weight:700;color:#0f766e;background:#f0fdf9;white-space:nowrap}
+.diff-up{color:#16a34a;font-weight:600}.diff-dn{color:#dc2626;font-weight:600}.diff-eq{color:#888}
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:16px}
+.chart-card{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.09);padding:18px 20px}
+.chart-title{font-size:.88rem;font-weight:700;color:#1a3a5c;margin-bottom:14px}
+.bar-row{margin-bottom:10px}
+.bar-label{font-size:.76rem;color:#555;margin-bottom:2px;display:flex;justify-content:space-between}
+.bar-track{height:9px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin-bottom:2px}
+.bar-fill{height:100%;border-radius:99px;transition:width .5s ease}
+.bar-legend{display:flex;gap:12px;margin-top:8px}
+.legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle}
+.legend-item{font-size:.74rem;color:#555}
+
+@media(max-width:600px){
+  .page-header{flex-direction:column;align-items:flex-start}
+  .card{padding:16px}
+  .btn-start,.btn-primary,.btn-green,.btn-gray{width:100%}
+  .pred-sem-row{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════ 업로드 페이지 ════════════ -->
+<div id="pg-upload">
+<div class="upload-wrap">
+  <div class="app-title">
+    <h1>내신성적 조회 시스템</h1>
+    <p>3학년 내신성적 엑셀 파일을 업로드하면 개인별 조회 및 전체 통계를 볼 수 있습니다</p>
+  </div>
+
+  <div class="card" style="padding:28px">
+    <div id="drop-zone" class="drop-zone">
+      <div class="drop-icon">📂</div>
+      <div class="drop-text">엑셀 파일을 여기에 드래그하거나 클릭하여 선택</div>
+      <div class="drop-hint">.xls / .xlsx · 여러 회차 동시 업로드 가능</div>
+      <input type="file" id="file-input" accept=".xls,.xlsx" multiple>
+    </div>
+
+    <div class="name-guide">
+      <strong>📌 파일 이름 규칙:</strong> 파일 이름이 <strong>1</strong>로 시작하면 1회차, <strong>2</strong>로 시작하면 2회차, <strong>3</strong>으로 시작하면 3회차로 인식합니다.<br>
+      예) <code>1회차 3학년 내신성적.xls</code> → 1회차
+    </div>
+
+    <div id="file-list" class="file-list" style="display:none"></div>
+    <div id="upload-error" class="upload-error" style="display:none"></div>
+
+    <button id="start-btn" class="btn btn-primary btn-start" disabled onclick="goToMain()">
+      조회 시작 →
+    </button>
+  </div>
+</div>
+</div>
+
+<!-- ════════════ 메인 조회 페이지 ════════════ -->
+<div id="pg-main" style="display:none">
+<div class="container">
+
+  <div class="page-header">
+    <div>
+      <h1 id="main-title">내신성적 조회</h1>
+      <p class="subtitle" id="main-subtitle"></p>
+    </div>
+    <div class="header-btns">
+      <button class="btn btn-gray"  onclick="goToUpload()">📂 파일 관리</button>
+      <button class="btn btn-green" onclick="goToStats()">전체 통계 살펴보기</button>
+    </div>
+  </div>
+
+  <div class="round-strip" id="round-strip"></div>
+
+  <div class="card">
+    <div class="form-row" style="margin-bottom:14px">
+      <div class="form-group">
+        <label for="sel-grade">학년</label>
+        <select id="sel-grade"><option value="3">3학년</option></select>
+      </div>
+      <div class="form-group">
+        <label for="sel-class">반</label>
+        <select id="sel-class">
+          <option value="">-- 반 선택 --</option>
+          <option value="1">1반</option><option value="2">2반</option>
+          <option value="3">3반</option><option value="4">4반</option>
+          <option value="5">5반</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="sel-name">이름</label>
+        <select id="sel-name"><option value="">-- 이름 선택 --</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="checks-row">
+        <span class="checks-label">표시 항목:</span>
+        <label class="check-item"><input type="checkbox" id="chk-rank" checked><span>학년 석차</span></label>
+        <label class="check-item"><input type="checkbox" id="chk-pct"  checked><span>석차 백분율</span></label>
+      </div>
+      <button class="btn btn-primary" onclick="doSearch()">조회</button>
+    </div>
+  </div>
+
+  <div class="card" id="result-section" style="display:none">
+    <div class="result-header" id="result-header"></div>
+    <div class="table-wrap">
+      <table class="main-table">
+        <thead id="result-thead"></thead>
+        <tbody id="result-tbody"></tbody>
+      </table>
+    </div>
+    <div id="sangjeom-wrap"></div>
+    <div id="predictor-area"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ════════════ 통계 페이지 ════════════ -->
+<div id="pg-stats" style="display:none">
+<div class="container">
+
+  <div class="page-header">
+    <div>
+      <h1>전체 통계</h1>
+      <p class="subtitle" id="stats-subtitle"></p>
+    </div>
+    <div class="header-btns">
+      <button class="btn btn-gray"    onclick="goToUpload()">📂 파일 관리</button>
+      <button class="btn btn-primary" onclick="goToMain()">개인별 성적 조회</button>
+    </div>
+  </div>
+
+  <div class="card" id="stats-card">
+    <div class="stat-title" id="stats-table-title"></div>
+    <div class="table-wrap">
+      <table class="stats-table"><thead id="stats-thead"></thead><tbody id="stats-tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="charts-grid" id="stats-charts"></div>
+
+</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   상수 및 설정
+═══════════════════════════════════════ */
+
+// 3회차 시스템: 1회차(2학년까지), 2회차(3학년1학기), 3회차(최종)
+const ROUND_LABEL = { 1:'1회차', 2:'2회차', 3:'3회차(최종)' };
+const ROUND_DESC  = {
+  1: '2학년까지 성적 반영',
+  2: '+ 3학년 1학기 성적 반영',
+  3: '+ 3학년 2학기 성적 반영 (최종)',
+};
+
+// 현재점수 = 교과활동점수 × 비율 (1회차×½, 2회차×¾)
+// 예측 = 현재점수 + 학기별 delta → 역산해서 각 회차 교과활동점수 표시
+const ROUND_RATIO = { 1: 0.5, 2: 0.75, 3: 1.0 };
+
+const GRADE_OPTIONS = [
+  { value:'A100', label:'전부 A (100점)', delta: 30 },
+  { value:'A90',  label:'전부 A (90점)',  delta: 29 },
+  { value:'B',    label:'전부 B (80점)',  delta: 26 },
+  { value:'C',    label:'전부 C (70점)',  delta: 23 },
+  { value:'D',    label:'전부 D (60점)',  delta: 18 },
+  { value:'E',    label:'전부 E (50점)',  delta: 16 },
+];
+function getDelta(grade){ return (GRADE_OPTIONS.find(o=>o.value===grade)||{}).delta ?? 0; }
+
+const FIELDS = [
+  { key:'academic',  label:'교과활동점수', maxBar:160 },
+  { key:'attend',    label:'출결점수',     maxBar:20  },
+  { key:'volunteer', label:'봉사활동점수', maxBar:20  },
+  { key:'school',    label:'학교활동점수', maxBar:8   },
+  { key:'total',     label:'내신성적총점', maxBar:210 },
+];
+
+/* ═══════════════════════════════════════
+   상태
+═══════════════════════════════════════ */
+const STATE = {
+  rounds: {},   // { 1: [{name,class,...}], 2:[...], 3:[...] }
+  meta:   {},   // { 1: {date, count, fileName}, ... }
+  maxRound: 0,
+  sangjeom: 0,  // 학교활동 상점 (0~2)
+};
+
+/* ═══════════════════════════════════════
+   유틸
+═══════════════════════════════════════ */
+function fmt(v, d=3){ return typeof v==='number' ? v.toFixed(d) : '—'; }
+function avg(arr, key){ return arr.length ? arr.reduce((s,d)=>s+d[key],0)/arr.length : 0; }
+function diffHtml(a, b){
+  const d = +(b-a).toFixed(3);
+  if(d>0) return `<span class="diff-up">▲${d.toFixed(3)}</span>`;
+  if(d<0) return `<span class="diff-dn">▼${Math.abs(d).toFixed(3)}</span>`;
+  return `<span class="diff-eq">−</span>`;
+}
+function getRounds(){ return Object.keys(STATE.rounds).map(Number).sort((a,b)=>a-b); }
+
+/* ═══════════════════════════════════════
+   회차 감지 (파일명 우선)
+═══════════════════════════════════════ */
+function detectRoundFromName(filename){
+  const name = filename.trim();
+  // "N회차" 패턴 검색
+  const m = name.match(/([123])회차/);
+  if(m) return parseInt(m[1]);
+  // 첫 글자로 판단 (1,2,3으로 시작하면)
+  const firstChar = name[0];
+  if(firstChar==='1') return 1;
+  if(firstChar==='2') return 2;
+  if(firstChar==='3') return 3;
+  return null;
+}
+
+/* ═══════════════════════════════════════
+   엑셀 파싱
+═══════════════════════════════════════ */
+function parseExcelFile(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type:'array', codepage:949 });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+
+        // raw 셀 접근으로 컬럼 위치 독립적 파싱
+        const ref = ws['!ref'];
+        if(!ref){ reject(new Error(`파일 "${file.name}": 시트 데이터를 읽을 수 없습니다.`)); return; }
+
+        const range = XLSX.utils.decode_range(ref);
+        const R0 = range.s.r, R1 = range.e.r;
+        const C0 = range.s.c, C1 = range.e.c;
+
+        // 셀값 안전 추출
+        const cellVal = (r, c) => {
+          const addr = XLSX.utils.encode_cell({r, c});
+          const cell = ws[addr];
+          if(!cell) return '';
+          return cell.v ?? '';
+        };
+
+        // 1. 회차 감지: 파일명 우선, 그 다음 파일 내용에서 "N회차" 검색
+        let round = detectRoundFromName(file.name);
+        let date = '';
+        if(!round){
+          outer: for(let r=R0; r<Math.min(R0+5, R1); r++){
+            for(let c=C0; c<=C1; c++){
+              const v = String(cellVal(r,c));
+              const m = v.match(/([123])회차/);
+              if(m){ round = parseInt(m[1]); break outer; }
+            }
+          }
+        }
+        // 날짜 추출
+        for(let r=R0; r<Math.min(R0+5, R1); r++){
+          for(let c=C0; c<=C1; c++){
+            const v = String(cellVal(r,c));
+            const d = v.match(/(\d{4}-\d{2}-\d{2})/);
+            if(d){ date = d[1]; break; }
+          }
+        }
+
+        if(!round || round < 1 || round > 3){
+          reject(new Error(
+            `파일 "${file.name}": 회차를 감지할 수 없습니다.\n` +
+            `파일명을 "1회차...", "2회차...", "3회차..."로 시작하게 해주세요.`
+          ));
+          return;
+        }
+
+        // 2. 학생 데이터 시작 행 & 컬럼 자동 감지
+        // 학년(1~6), 반(1~10), 번호(1~50), 이름(문자열)이 연속으로 있는 첫 행을 찾음
+        let dataStartRow = -1;
+        let cGrade=-1, cClass=-1, cNum=-1, cName=-1;
+        let cAcad=-1, cAttend=-1, cVol=-1, cSchool=-1, cTotal=-1, cRank=-1, cPct=-1;
+
+        for(let r=R0; r<=R1; r++){
+          for(let c=C0; c<=C1-3; c++){
+            const g = parseFloat(cellVal(r,c));
+            const cl= parseFloat(cellVal(r,c+1));
+            const n = parseFloat(cellVal(r,c+2));
+            const nm= String(cellVal(r,c+3)).trim();
+            // 학년 1~6, 반 1~10, 번호 1~50, 이름은 한글(또는 비어있지 않은 문자열)
+            if(g>=1&&g<=6 && cl>=1&&cl<=10 && n>=1&&n<=50 && nm.length>0){
+              dataStartRow = r;
+              cGrade=c; cClass=c+1; cNum=c+2; cName=c+3;
+              // 교과활동(c+4), 빈(c+5), 출결(c+6), 빈x2(c+7,8), 봉사(c+9), 빈(c+10),
+              // 학교활동(c+11), 빈(c+12), 총점(c+13), 석차(c+14), 백분율(c+15)
+              cAcad    = c+4;
+              cAttend  = c+6;
+              cVol     = c+9;
+              cSchool  = c+11;
+              cTotal   = c+13;
+              cRank    = c+14;
+              cPct     = c+15;
+              break;
+            }
+          }
+          if(dataStartRow>=0) break;
+        }
+
+        if(dataStartRow<0){
+          // fallback: 알려진 고정 위치 사용
+          dataStartRow=7; cGrade=1; cClass=2; cNum=3; cName=4;
+          cAcad=5; cAttend=7; cVol=10; cSchool=12; cTotal=14; cRank=15; cPct=16;
+          console.warn('학생 데이터 위치 자동 감지 실패 — 기본값 사용');
+        }
+
+        // 3. 학생 데이터 파싱
+        const students = [];
+        for(let r=dataStartRow; r<=R1; r++){
+          const gradeV = cellVal(r, cGrade);
+          const nameV  = String(cellVal(r, cName)).trim();
+          if(gradeV==='' || nameV==='') continue;
+          const grade = parseFloat(gradeV);
+          const cls   = parseFloat(cellVal(r, cClass));
+          const num   = parseFloat(cellVal(r, cNum));
+          if(isNaN(grade)||isNaN(cls)||isNaN(num)) continue;
+          const toNum = v => { const n=parseFloat(v); return isNaN(n)?0:n; };
+          students.push({
+            grade: Math.round(grade), class: Math.round(cls), num: Math.round(num),
+            name: nameV,
+            academic:  toNum(cellVal(r, cAcad)),
+            attend:    toNum(cellVal(r, cAttend)),
+            volunteer: toNum(cellVal(r, cVol)),
+            school:    toNum(cellVal(r, cSchool)),
+            total:     toNum(cellVal(r, cTotal)),
+            rank:      Math.round(toNum(cellVal(r, cRank))),
+            rankpct:   toNum(cellVal(r, cPct)),
+          });
+        }
+
+        resolve({ round, date, students, fileName: file.name });
+      } catch(err){
+        reject(new Error(`파일 "${file.name}" 파싱 오류: ${err.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error(`파일 "${file.name}"을 읽을 수 없습니다.`));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/* ═══════════════════════════════════════
+   파일 업로드 UI
+═══════════════════════════════════════ */
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileList  = document.getElementById('file-list');
+const errEl     = document.getElementById('upload-error');
+const startBtn  = document.getElementById('start-btn');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+async function handleFiles(fileArr){
+  errEl.style.display='none';
+  const files = Array.from(fileArr).filter(f => /\.xlsx?$/i.test(f.name));
+  if(!files.length){ showError('엑셀 파일(.xls/.xlsx)만 업로드할 수 있습니다.'); return; }
+
+  for(const file of files){
+    try {
+      const { round, date, students, fileName } = await parseExcelFile(file);
+      STATE.rounds[round] = students;
+      STATE.meta[round]   = { date, count: students.length, fileName };
+      STATE.maxRound = Math.max(...getRounds());
+    } catch(err){
+      showError(err.message); return;
+    }
+  }
+  fileInput.value = '';
+  renderFileList();
+  startBtn.disabled = !getRounds().length;
+}
+
+function removeRound(round){
+  delete STATE.rounds[round];
+  delete STATE.meta[round];
+  STATE.maxRound = getRounds().length ? Math.max(...getRounds()) : 0;
+  renderFileList();
+  startBtn.disabled = !getRounds().length;
+}
+
+function renderFileList(){
+  const rounds = getRounds();
+  if(!rounds.length){ fileList.style.display='none'; return; }
+  fileList.style.display='flex';
+  fileList.innerHTML = rounds.map(r => `
+    <div class="file-item">
+      <span class="round-badge">${ROUND_LABEL[r]}</span>
+      <span class="file-name">${STATE.meta[r].fileName}</span>
+      <span class="file-meta">${STATE.meta[r].date ? STATE.meta[r].date + ' · ' : ''}${STATE.meta[r].count}명</span>
+      <button class="del-btn" onclick="removeRound(${r})" title="삭제">✕</button>
+    </div>`).join('');
+}
+
+function showError(msg){ errEl.textContent=msg; errEl.style.display='block'; }
+
+/* ═══════════════════════════════════════
+   페이지 전환
+═══════════════════════════════════════ */
+function goToUpload(){
+  ['pg-main','pg-stats'].forEach(p => document.getElementById(p).style.display='none');
+  document.getElementById('pg-upload').style.display='flex';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goToMain(){
+  document.getElementById('pg-upload').style.display='none';
+  document.getElementById('pg-stats').style.display='none';
+  document.getElementById('pg-main').style.display='block';
+  renderMainPage();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goToStats(){
+  document.getElementById('pg-upload').style.display='none';
+  document.getElementById('pg-main').style.display='none';
+  document.getElementById('pg-stats').style.display='block';
+  renderStats();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ═══════════════════════════════════════
+   메인 페이지
+═══════════════════════════════════════ */
+function renderMainPage(){
+  const rounds = getRounds();
+  document.getElementById('main-subtitle').textContent =
+    rounds.map(r=>ROUND_LABEL[r]).join(' · ') + ' 데이터 로드됨';
+
+  const strip = document.getElementById('round-strip');
+  strip.innerHTML = [1,2,3].map(r => {
+    const ok = rounds.includes(r);
+    return `<div class="round-chip ${ok?'uploaded':'missing'}">
+      <span class="dot"></span>
+      <span>${ROUND_LABEL[r]}${ok?' ✓':''}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('sel-name').innerHTML='<option value="">-- 이름 선택 --</option>';
+  document.getElementById('result-section').style.display='none';
+  document.getElementById('sel-class').value='';
+}
+
+document.getElementById('sel-class').addEventListener('change', () => {
+  const cls = parseInt(document.getElementById('sel-class').value);
+  const sel  = document.getElementById('sel-name');
+  sel.innerHTML = '<option value="">-- 이름 선택 --</option>';
+  if(!cls) return;
+  const baseRound = STATE.rounds[STATE.maxRound] || STATE.rounds[getRounds()[0]] || [];
+  const students  = baseRound.filter(d=>d.class===cls).sort((a,b)=>a.num-b.num);
+  students.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value=s.name; opt.textContent=s.name; sel.appendChild(opt);
+  });
+});
+
+/* ═══════════════════════════════════════
+   조회
+═══════════════════════════════════════ */
+function doSearch(){
+  const cls  = parseInt(document.getElementById('sel-class').value);
+  const name = document.getElementById('sel-name').value.trim();
+  if(!cls||!name){ alert('반과 이름을 선택해 주세요.'); return; }
+
+  const showRank = document.getElementById('chk-rank').checked;
+  const showPct  = document.getElementById('chk-pct').checked;
+  const rounds   = getRounds();
+
+  const rowData = {};
+  rounds.forEach(r => {
+    rowData[r] = (STATE.rounds[r]||[]).find(d=>d.class===cls&&d.name===name) || null;
+  });
+
+  STATE.sangjeom = 0;  // 학생 바뀌면 상점 초기화
+
+  const section = document.getElementById('result-section');
+  section.style.display = 'block';
+  document.getElementById('result-header').innerHTML =
+    `3학년 ${cls}반 <span class="name-badge">${name}</span> 성적 조회 결과`;
+
+  let cols = ['회차','교과활동점수','출결점수','봉사활동점수','학교활동점수','내신성적총점'];
+  if(showRank) cols.push('학년석차');
+  if(showPct)  cols.push('석차백분율');
+  document.getElementById('result-thead').innerHTML =
+    '<tr>' + cols.map((c,i)=>`<th${i>=6?' class="rank-col"':''}>${c}</th>`).join('') + '</tr>';
+
+  const makeRow = (label, d) => {
+    if(!d) return `<tr><td class="round-label">${label}</td><td colspan="${cols.length-1}" class="no-data-cell">데이터 없음</td></tr>`;
+    const sj = STATE.sangjeom;
+    let cells = `<td class="round-label">${label}</td>`;
+    cells += `<td>${fmt(d.academic)}</td><td>${fmt(d.attend)}</td><td>${fmt(d.volunteer)}</td>`;
+    cells += `<td>${fmt(d.school)}${sj>0?` <span class="sangjeom-badge">+${sj}</span>`:''}`;
+    cells += ` = ${fmt(d.school + sj)}</td>`;
+    cells += `<td><strong>${fmt(d.total + sj)}</strong></td>`;
+    if(showRank) cells += `<td>${d.rank}위</td>`;
+    if(showPct)  cells += `<td>${d.rankpct}%</td>`;
+    return `<tr>${cells}</tr>`;
+  };
+  document.getElementById('result-tbody').innerHTML =
+    rounds.map(r => makeRow(ROUND_LABEL[r], rowData[r])).join('');
+
+  // 상점 입력 UI
+  document.getElementById('sangjeom-wrap').innerHTML = `
+    <div class="sangjeom-box">
+      <label for="sangjeom-input">학교활동 상점 추가 <span class="sangjeom-hint">(0~2점, 미반영 상점 있을 경우 입력)</span></label>
+      <input id="sangjeom-input" type="number" min="0" max="2" step="0.01" value="0"
+             oninput="applySangjeom(this.value)">
+      <span class="sangjeom-unit">점</span>
+    </div>`;
+
+  // 예측 계산기 (3회차 미만일 때만 표시)
+  const area = document.getElementById('predictor-area');
+  const maxRound = STATE.maxRound;
+  if(maxRound < 3){
+    const latestData = rowData[maxRound];
+    if(latestData){
+      area.innerHTML = buildPredictor(rowData, maxRound, latestData);
+      updatePredictor();
+    } else {
+      area.innerHTML = '';
+    }
+  } else {
+    area.innerHTML = '';
+  }
+
+  section.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ═══════════════════════════════════════
+   예측 계산기 HTML 생성
+═══════════════════════════════════════ */
+function buildPredictor(rowData, maxRound, latestData){
+  // maxRound=1 → 3학년 1학기, 2학기 모두 예측
+  // maxRound=2 → 3학년 2학기만 예측
+
+  const needSem1 = maxRound < 2;  // 3학년 1학기 예측 필요
+  const needSem2 = maxRound < 3;  // 3학년 2학기 예측 필요
+
+  const gradeOptHtml = GRADE_OPTIONS.map(o =>
+    `<option value="${o.value}">${o.label}</option>`
+  ).join('');
+
+  const sem1Cell = needSem1
+    ? `<div class="pred-sem-cell">
+        <label>3학년 1학기 예상 등급</label>
+        <select id="pred-sem1" onchange="updatePredictor()">
+          <option value="">-- 등급 선택 --</option>
+          ${gradeOptHtml}
+        </select>
+      </div>`
+    : `<div class="pred-sem-cell locked">
+        <label>3학년 1학기</label>
+        <div class="pred-locked-val">✓ 확정 (2회차 반영)</div>
+      </div>`;
+
+  const sem2Cell = `<div class="pred-sem-cell">
+      <label>3학년 2학기 예상 등급</label>
+      <select id="pred-sem2" onchange="updatePredictor()">
+        <option value="">-- 등급 선택 --</option>
+        ${gradeOptHtml}
+      </select>
+    </div>`;
+
+  return `
+    <div class="predictor-wrap">
+      <div class="predictor-title">최종 내신 예측 계산기</div>
+      <div class="predictor-sub">
+        3학년 시험 등급을 선택하면 예상 교과활동점수와 내신성적총점을 실시간으로 계산합니다.<br>
+        ※ 음미체 30점 고정 가정 → 실질교과(120점 만점) = 교과활동 − 30<br>
+        ※ 현재점수 = 실질교과 × ${maxRound===1?'½':maxRound===2?'¾':'1'} (${ROUND_LABEL[maxRound]} 기준)<br>
+        <span id="pred-current-score-info" style="color:#0056b3;font-weight:600"></span>
+      </div>
+      <div class="pred-sem-row">
+        ${sem1Cell}
+        ${sem2Cell}
+      </div>
+      <div class="pred-table-wrap">
+        <table class="pred-table">
+          <thead>
+            <tr>
+              <th>회차</th>
+              <th>교과활동점수</th>
+              <th>내신성적총점</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody id="pred-tbody"></tbody>
+        </table>
+      </div>
+      <div class="pred-note">
+        ※ 확정 행은 업로드된 파일의 실제 점수입니다.<br>
+        ※ 예측 행은 선택한 등급 시나리오 기준의 추정값이며, 전기고(특목고·자사고) 지원자는 2회차가 최종 내신입니다.
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════
+   상점 적용
+═══════════════════════════════════════ */
+function applySangjeom(val){
+  const v = Math.min(2, Math.max(0, parseFloat(val)||0));
+  STATE.sangjeom = v;
+  // 결과 테이블 재렌더
+  const cls  = parseInt(document.getElementById('sel-class').value);
+  const name = document.getElementById('sel-name').value.trim();
+  if(!cls||!name) return;
+  const rounds = getRounds();
+  const rowData = {};
+  rounds.forEach(r => { rowData[r] = (STATE.rounds[r]||[]).find(d=>d.class===cls&&d.name===name)||null; });
+  const showRank = document.getElementById('chk-rank')?.checked ?? false;
+  const showPct  = document.getElementById('chk-pct')?.checked  ?? false;
+  const makeRow = (label, d) => {
+    if(!d) return `<tr><td class="round-label">${label}</td><td colspan="5" class="no-data-cell">데이터 없음</td></tr>`;
+    const sj = STATE.sangjeom;
+    let cells = `<td class="round-label">${label}</td>`;
+    cells += `<td>${fmt(d.academic)}</td><td>${fmt(d.attend)}</td><td>${fmt(d.volunteer)}</td>`;
+    cells += `<td>${fmt(d.school)}${sj>0?` <span class="sangjeom-badge">+${sj}</span>`:''}`;
+    cells += ` = ${fmt(d.school + sj)}</td>`;
+    cells += `<td><strong>${fmt(d.total + sj)}</strong></td>`;
+    if(showRank) cells += `<td>${d.rank}위</td>`;
+    if(showPct)  cells += `<td>${d.rankpct}%</td>`;
+    return `<tr>${cells}</tr>`;
+  };
+  document.getElementById('result-tbody').innerHTML =
+    rounds.map(r => makeRow(ROUND_LABEL[r], rowData[r])).join('');
+  updatePredictor();
+}
+
+/* ═══════════════════════════════════════
+   예측 테이블 업데이트 (실시간)
+═══════════════════════════════════════ */
+function updatePredictor(){
+  const tbody = document.getElementById('pred-tbody');
+  if(!tbody) return;
+
+  const cls  = parseInt(document.getElementById('sel-class').value);
+  const name = document.getElementById('sel-name').value.trim();
+  if(!cls||!name) return;
+
+  const rounds = getRounds();
+  const maxRound = STATE.maxRound;
+
+  const rowData = {};
+  rounds.forEach(r => {
+    rowData[r] = (STATE.rounds[r]||[]).find(d=>d.class===cls&&d.name===name)||null;
+  });
+
+  const latestData = rowData[maxRound];
+  if(!latestData) return;
+
+  const other = latestData.attend + latestData.volunteer + latestData.school + STATE.sangjeom;
+
+  const sem1El = document.getElementById('pred-sem1');
+  const sem2El = document.getElementById('pred-sem2');
+  const sem1Grade = sem1El ? sem1El.value : '';
+  const sem2Grade = sem2El ? sem2El.value : '';
+
+  const needSem1 = maxRound < 2;
+  const needSem2 = maxRound < 3;
+
+  // 음미체 30점 고정 제외 후 실질교과(120점 만점)로 가중치 계산
+  const 실질교과 = latestData.academic - 30;
+  const 현재점수 = 실질교과 * ROUND_RATIO[maxRound];
+
+  // 현재점수 표시 업데이트
+  const infoEl = document.getElementById('pred-current-score-info');
+  if(infoEl){
+    const rLabel = maxRound===1?'½':maxRound===2?'¾':'1';
+    infoEl.textContent =
+      `실질교과: ${fmt(latestData.academic)} − 30 = ${fmt(실질교과)}점 | 현재점수: ${fmt(실질교과)} × ${rLabel} = ${fmt(현재점수)}점`;
+  }
+
+  const rows = [];
+
+  const sj = STATE.sangjeom;
+
+  // 1회차 행
+  if(rowData[1]){
+    rows.push({
+      label: ROUND_LABEL[1],
+      acad:  fmt(rowData[1].academic),
+      total: fmt(rowData[1].total + sj),
+      cls:   'row-confirmed',
+      badge: '<span class="sbadge sbadge-confirmed">확정</span>',
+      note:  ROUND_DESC[1],
+    });
+  }
+
+  // 2회차 행
+  if(rowData[2]){
+    rows.push({
+      label: ROUND_LABEL[2],
+      acad:  fmt(rowData[2].academic),
+      total: fmt(rowData[2].total + sj),
+      cls:   'row-confirmed',
+      badge: '<span class="sbadge sbadge-confirmed">확정</span>',
+      note:  ROUND_DESC[2],
+    });
+  } else if(needSem1){
+    // 1회차만 있을 때 → 3학년 1학기 예측
+    // 교과활동 = (현재점수 + Δsem1) / 0.75  (∵ 2회차 비율 = 0.75)
+    if(sem1Grade){
+      const pred2Acad = (현재점수 + getDelta(sem1Grade)) / 0.75 + 30;
+      const pred2Total = pred2Acad + other;
+      const optLabel = (GRADE_OPTIONS.find(o=>o.value===sem1Grade)||{}).label || sem1Grade;
+      rows.push({
+        label: ROUND_LABEL[2],
+        acad:  fmt(pred2Acad),
+        total: fmt(pred2Total),
+        cls:   'row-pred',
+        badge: `<span class="sbadge sbadge-pred">예측</span>`,
+        note:  `1학기 ${optLabel} 기준`,
+      });
+    } else {
+      rows.push({
+        label: ROUND_LABEL[2],
+        acad:  '—',
+        total: '—',
+        cls:   'row-na',
+        badge: '',
+        note:  '3학년 1학기 등급 선택 필요',
+      });
+    }
+  }
+
+  // 3회차 행
+  if(rowData[3]){
+    rows.push({
+      label: ROUND_LABEL[3],
+      acad:  fmt(rowData[3].academic),
+      total: fmt(rowData[3].total + sj),
+      cls:   'row-final',
+      badge: '<span class="sbadge sbadge-final">최종</span>',
+      note:  ROUND_DESC[3],
+    });
+  } else if(needSem2){
+    // 3회차 교과활동 = 현재점수 + Δsem1 + Δsem2  (∵ 3회차 비율 = 1.0)
+    // maxRound=2일 때 Δsem1 = 0 (이미 확정)
+    const canCompute = (!needSem1 || sem1Grade) && sem2Grade;
+    if(canCompute){
+      const d1 = needSem1 ? getDelta(sem1Grade) : 0;
+      const d2 = getDelta(sem2Grade);
+      const pred3Acad = 현재점수 + d1 + d2 + 30;
+      const pred3Total = pred3Acad + other;
+      const opt1 = needSem1 ? (GRADE_OPTIONS.find(o=>o.value===sem1Grade)||{}).label||sem1Grade : null;
+      const opt2 = (GRADE_OPTIONS.find(o=>o.value===sem2Grade)||{}).label || sem2Grade;
+      const noteStr = opt1 ? `1학기 ${opt1} + 2학기 ${opt2} 기준` : `2학기 ${opt2} 기준`;
+      rows.push({
+        label: ROUND_LABEL[3],
+        acad:  fmt(pred3Acad),
+        total: fmt(pred3Total),
+        cls:   'row-final',
+        badge: `<span class="sbadge sbadge-final">예측</span>`,
+        note:  noteStr,
+      });
+    } else {
+      rows.push({
+        label: ROUND_LABEL[3],
+        acad:  '—',
+        total: '—',
+        cls:   'row-na',
+        badge: '',
+        note:  needSem1 && !sem1Grade ? '1학기 등급 먼저 선택' : '3학년 2학기 등급 선택 필요',
+      });
+    }
+  }
+
+  tbody.innerHTML = rows.map(r => `
+    <tr class="${r.cls}">
+      <td class="sname">${r.label}${r.badge}</td>
+      <td>${r.acad}</td>
+      <td>${r.total}</td>
+      <td style="font-size:.72rem;color:#888;text-align:left">${r.note}</td>
+    </tr>`).join('');
+}
+
+/* ═══════════════════════════════════════
+   통계 페이지
+═══════════════════════════════════════ */
+function renderStats(){
+  const rounds = getRounds();
+  if(!rounds.length) return;
+  document.getElementById('stats-subtitle').textContent =
+    rounds.map(r=>`${ROUND_LABEL[r]}${STATE.meta[r].date?' ('+STATE.meta[r].date+')':''}`).join(' · ');
+  buildStatsTable(rounds);
+  buildStatsCharts(rounds);
+}
+
+function buildStatsTable(rounds){
+  const scopes = [
+    { label:'전체', fn: _=>true },
+    ...[1,2,3,4,5].map(c => ({ label:`${c}반`, fn: d=>d.class===c }))
+  ];
+
+  const r1 = rounds[0], rN = rounds[rounds.length-1];
+  const showDiff = rounds.length >= 2;
+
+  document.getElementById('stats-table-title').textContent =
+    `항목별 평균 비교 (${rounds.map(r=>ROUND_LABEL[r]).join(' / ')})`;
+
+  const colColors = { 1:'#1d4ed8', 2:'#6d28d9', 3:'#0f766e' };
+  const colsHead1 = '<th rowspan="2" style="background:#0f766e">구분</th>' +
+    FIELDS.map(f => `<th colspan="${rounds.length + (showDiff?1:0)}" class="r-head">${f.label}</th>`).join('');
+  const colsHead2 = FIELDS.map(() =>
+    rounds.map(r=>`<th style="background:${colColors[r]||'#334155'}">${ROUND_LABEL[r]}</th>`).join('') +
+    (showDiff ? `<th style="background:#475569">${ROUND_LABEL[r1]}→${ROUND_LABEL[rN]}</th>` : '')
+  ).join('');
+
+  document.getElementById('stats-thead').innerHTML =
+    `<tr>${colsHead1}</tr><tr>${colsHead2}</tr>`;
+
+  const tbody = document.getElementById('stats-tbody');
+  tbody.innerHTML = scopes.map(sc => {
+    let cells = `<td class="scope-label">${sc.label}</td>`;
+    FIELDS.forEach(f => {
+      const avgs = rounds.map(r => avg((STATE.rounds[r]||[]).filter(sc.fn), f.key));
+      cells += avgs.map(a=>`<td>${a.toFixed(3)}</td>`).join('');
+      if(showDiff) cells += `<td>${diffHtml(avgs[0], avgs[avgs.length-1])}</td>`;
+    });
+    return `<tr>${cells}</tr>`;
+  }).join('');
+}
+
+function buildStatsCharts(rounds){
+  const el = document.getElementById('stats-charts');
+  el.innerHTML = '';
+  if(rounds.length < 2){
+    el.innerHTML='<p style="color:#888;font-size:.85rem">두 회차 이상 업로드하면 항목별 비교 차트를 볼 수 있습니다.</p>';
+    return;
+  }
+
+  const scopes = [
+    { label:'전체', fn: _=>true },
+    ...[1,2,3,4,5].map(c => ({ label:`${c}반`, fn: d=>d.class===c }))
+  ];
+  const colors = ['#2563eb','#7c3aed','#0f766e','#b45309','#dc2626'];
+
+  FIELDS.forEach(f => {
+    const rows = scopes.map(sc => ({
+      label: sc.label,
+      vals:  rounds.map(r => avg((STATE.rounds[r]||[]).filter(sc.fn), f.key))
+    }));
+    const maxVal = Math.max(...rows.flatMap(r=>r.vals)) * 1.05 || 1;
+
+    const bars = rows.map(r => {
+      const barSet = r.vals.map((v,ri) => `
+        <div class="bar-label" style="margin-top:${ri?'4px':'0'}">
+          ${ri===0?r.label:'<span style="opacity:0">'+r.label+'</span>'}
+          <span style="color:${colors[ri]}">${v.toFixed(2)}</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${(v/maxVal*100).toFixed(1)}%;background:${colors[ri]}"></div>
+        </div>`).join('');
+      return `<div class="bar-row">${barSet}</div>`;
+    }).join('');
+
+    const legend = rounds.map((r,ri) =>
+      `<span class="legend-item"><span class="legend-dot" style="background:${colors[ri]}"></span>${ROUND_LABEL[r]}</span>`
+    ).join('');
+
+    el.insertAdjacentHTML('beforeend', `
+      <div class="chart-card">
+        <div class="chart-title">${f.label}</div>
+        ${bars}
+        <div class="bar-legend">${legend}</div>
+      </div>`);
+  });
+}
+
+/* 초기화 */
+goToUpload();
+</script>
+</body>
+</html>
